@@ -6,40 +6,38 @@ use Closure;
 use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-use Exception;
 
 class JwtAuthMiddleware
 {
-    public function handle(Request $request, Closure $next, $role = null)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
-        $token = $request->bearerToken();
+        $authHeader = $request->header('Authorization');
 
-        if (!$token) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token not provided.',
-            ], 401);
+        if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+            return response()->json(['success' => false, 'message' => 'Token missing ❌'], 401);
         }
+
+        $token = substr($authHeader, 7);
 
         try {
             $decoded = JWT::decode($token, new Key(config('app.jwt_secret'), 'HS256'));
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid or expired token.',
-            ], 401);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Invalid or expired token ❌'], 401);
         }
 
-        // Role check — same as Node.js isDistrictAdmin, isSuperAdmin, etc.
-        if ($role && isset($decoded->role) && $decoded->role !== $role) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Access denied. Insufficient role.',
-            ], 403);
+        // Role check
+        if (!empty($roles) && !in_array($decoded->role, $roles)) {
+            return response()->json(['success' => false, 'message' => 'Access denied ❌'], 403);
         }
 
-        // Attach user to request (same as req.user in Node.js)
-        $request->merge(['auth_user' => $decoded]);
+        // Convert stdClass to array before merging
+        $authUser = [
+            'id'       => $decoded->id,
+            'username' => $decoded->username,
+            'role'     => $decoded->role,
+        ];
+
+        $request->merge(['auth_user' => $authUser]);
 
         return $next($request);
     }

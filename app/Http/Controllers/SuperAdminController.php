@@ -46,7 +46,7 @@ class SuperAdminController extends Controller
             'email'      => $email,
             'mobile'     => $mobile,
             'password'   => $hashedPassword,
-            'is_active'  => 1,
+            // 'is_active'  => 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

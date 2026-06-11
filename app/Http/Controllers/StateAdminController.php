@@ -9,9 +9,7 @@ use Firebase\JWT\JWT;
 
 class StateAdminController extends Controller
 {
-    // ============================================================
     // POST /api/state-admin/login
-    // ============================================================
     public function login(Request $request)
     {
         $username = strtolower(trim($request->input('username', '')));
@@ -45,9 +43,7 @@ class StateAdminController extends Controller
         ]);
     }
 
-    // ============================================================
-    // POST /api/state-admin/add (Super Admin only)
-    // ============================================================
+    // POST /api/state-admin/add [JWT: superadmin]
     public function add(Request $request)
     {
         $fullname = trim($request->input('fullname', ''));
@@ -74,7 +70,9 @@ class StateAdminController extends Controller
             return response()->json(['success' => false, 'message' => 'Username or mobile already exists.'], 409);
         }
 
+        // auth_user from JWT middleware
         $authUser = $request->input('auth_user');
+        $createdby = is_object($authUser) ? $authUser->id : (is_array($authUser) ? $authUser['id'] : null);
 
         $id = DB::table('stateadmins')->insertGetId([
             'fullname'   => $fullname,
@@ -83,7 +81,7 @@ class StateAdminController extends Controller
             'mobile'     => $mobile,
             'password'   => Hash::make($password),
             'state'      => $state,
-            'createdby'  => $authUser->id,
+            'createdby'  => $createdby,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -91,9 +89,7 @@ class StateAdminController extends Controller
         return response()->json(['success' => true, 'message' => 'State admin added.', 'id' => $id], 201);
     }
 
-    // ============================================================
-    // GET /api/state-admin/get (Super Admin only)
-    // ============================================================
+    // GET /api/state-admin/get [JWT: superadmin]
     public function get(Request $request)
     {
         $admins = DB::table('stateadmins')
@@ -104,36 +100,27 @@ class StateAdminController extends Controller
         return response()->json(['success' => true, 'count' => $admins->count(), 'data' => $admins]);
     }
 
-    // ============================================================
-    // PUT /api/state-admin/edit/{id} (Super Admin only)
-    // ============================================================
+    // PUT /api/state-admin/edit/{id} [JWT: superadmin]
     public function edit(Request $request, $id)
     {
-        $fullname = trim($request->input('fullname', ''));
-        $email    = strtolower(trim($request->input('email', '')));
-        $mobile   = trim($request->input('mobile', ''));
-        $state    = trim($request->input('state', ''));
-
-        $affected = DB::table('stateadmins')
-            ->where('id', $id)
-            ->update([
-                'fullname'   => $fullname,
-                'email'      => $email,
-                'mobile'     => $mobile,
-                'state'      => $state,
-                'updated_at' => now(),
-            ]);
-
-        if (!$affected) {
+        $user = DB::table('stateadmins')->where('id', $id)->first();
+        if (!$user) {
             return response()->json(['success' => false, 'message' => 'State admin not found.'], 404);
         }
+
+        $update = ['updated_at' => now()];
+        if ($request->input('fullname')) $update['fullname'] = trim($request->input('fullname'));
+        if ($request->input('email'))    $update['email']    = strtolower(trim($request->input('email')));
+        if ($request->input('mobile'))   $update['mobile']   = trim($request->input('mobile'));
+        if ($request->input('state'))    $update['state']    = trim($request->input('state'));
+        if ($request->input('password')) $update['password'] = Hash::make($request->input('password'));
+
+        DB::table('stateadmins')->where('id', $id)->update($update);
 
         return response()->json(['success' => true, 'message' => 'State admin updated.']);
     }
 
-    // ============================================================
-    // DELETE /api/state-admin/delete/{id} (Super Admin only)
-    // ============================================================
+    // DELETE /api/state-admin/delete/{id} [JWT: superadmin]
     public function delete(Request $request, $id)
     {
         $affected = DB::table('stateadmins')->where('id', $id)->delete();
