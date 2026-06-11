@@ -19,3 +19,31 @@ Pan pehle Laravel log pahato — terminal madhe he run kara:
 bashtype storage\logs\laravel.log
 ------------------------------
 Unknown column 'is_active' in 'field list'
+------------------------
+
+env update kelyavar
+php artisan config:clear
+php artisan cache:clear
+----------------------------------
+{
+    "fullname": "State Admin Test",
+    "username": "stateadmin1",
+    "mobile": "7777777777",
+    "password": "State@123",
+    "state": "Maharashtra"
+}
+---------------------------
+{{baseurl}}/api/state-admin/login
+{
+    "username": "stateadmin1",
+    "password": "State@123"
+    
+}
+--------------------------
+Method: POST
+URL: http://127.0.0.1:8000/api/district-admin/add
+Authorization: Bearer Token → SuperAdmin token
+Body:
+-------------------------
+Error test kar
+type storage\logs\laravel.log | Select-String "ERROR" | Select-Object -Last 1

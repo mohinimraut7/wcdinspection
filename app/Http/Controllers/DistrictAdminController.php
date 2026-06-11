@@ -86,7 +86,8 @@ class DistrictAdminController extends Controller
             'password'   => Hash::make($password),
             'state'      => $state,
             'district'   => $district,
-            'createdby'  => $authUser->id,
+            // 'createdby'  => $authUser->id,
+            'createdby' => $authUser['id'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
