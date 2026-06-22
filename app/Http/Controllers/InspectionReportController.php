@@ -21,7 +21,8 @@ class InspectionReportController extends Controller
                 'o.id as orgid', 'o.orgname', 'o.orgtype', 'o.orgaddress',
                 'o.district', 'o.taluka', 'o.ward', 'o.concernname', 'o.concernmobile'
             )
-            ->where('sa.officerid', $authUser->id)
+            // ->where('sa.officerid', $authUser->id)
+            ->where('sa.officerid', $authUser['id'])  // -> ऐवजी ['id']
             ->where('sa.status', 'assigned')
             ->orderBy('sa.assignedat', 'desc')
             ->get();
@@ -130,7 +131,8 @@ class InspectionReportController extends Controller
                 'ir.latitude', 'ir.longitude', 'ir.submittedat',
                 'o.orgname', 'o.orgtype', 'o.district', 'o.taluka'
             )
-            ->where('ir.officerid', $authUser->id)
+            // ->where('ir.officerid', $authUser->id)
+            ->where('ir.officerid', $authUser['id'])
             ->orderBy('ir.submittedat', 'desc')
             ->get();
 
@@ -157,7 +159,9 @@ class InspectionReportController extends Controller
 
         $report = DB::table('inspectionreports')
             ->where('id', $id)
-            ->where('officerid', $authUser->id)
+            // ->where('officerid', $authUser->id)
+            ->where('officerid', $authUser['id'])
+
             ->first();
 
         if (!$report) {

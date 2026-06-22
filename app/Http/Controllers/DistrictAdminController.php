@@ -53,7 +53,10 @@ class DistrictAdminController extends Controller
     {
         $fullname = trim($request->input('fullname', ''));
         $username = strtolower(trim($request->input('username', '')));
-        $email    = strtolower(trim($request->input('email', '')));
+        // $email    = strtolower(trim($request->input('email', '')));
+
+        $email = strtolower(trim($request->input('email', ''))) ?: null;
+
         $mobile   = trim($request->input('mobile', ''));
         $password = $request->input('password', '');
         $state    = trim($request->input('state', ''));

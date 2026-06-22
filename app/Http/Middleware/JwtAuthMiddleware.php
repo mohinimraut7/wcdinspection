@@ -33,7 +33,8 @@ class JwtAuthMiddleware
         // Convert stdClass to array before merging
         $authUser = [
             'id'       => $decoded->id,
-            'username' => $decoded->username,
+            // 'username' => $decoded->username,
+                'username' => $decoded->username ?? null,
             'role'     => $decoded->role,
         ];
 

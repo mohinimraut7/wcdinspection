@@ -47,3 +47,7 @@ Body:
 -------------------------
 Error test kar
 type storage\logs\laravel.log | Select-String "ERROR" | Select-Object -Last 1
+--------------------
+URL: http://127.0.0.1:8000/api/inspection-officer/add
+Authorization: Bearer Token → District Admin token (nava login kela aahe tya token)
+Body:

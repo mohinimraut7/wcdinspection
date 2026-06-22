@@ -28,6 +28,7 @@ class OrganizationController extends Controller
         $regnotype      = trim($request->input('regnotype', ''));
         $regnovalue     = trim($request->input('regnovalue', ''));
         $concernname    = trim($request->input('concernname', ''));
+        $username       = strtolower(trim($request->input('username', '')));
         $concernmobile  = trim($request->input('concernmobile', ''));
         $concernemail   = strtolower(trim($request->input('concernemail', '')));
         $password       = $request->input('password', '');
@@ -63,6 +64,7 @@ class OrganizationController extends Controller
             'regnotype'       => $regnotype,
             'regnovalue'      => $regnovalue,
             'concernname'     => $concernname,
+            'username'        => $username,
             'concernmobile'   => $concernmobile,
             'concernemail'    => $concernemail,
             'password'        => Hash::make($password),
@@ -108,6 +110,113 @@ class OrganizationController extends Controller
         ]);
     }
 
+
+
+// ============================================================
+    // POST /api/org/login-username
+    // ============================================================
+    public function loginWithUsername(Request $request)
+    {
+        $username = strtolower(trim($request->input('username', '')));
+        $password = $request->input('password', '');
+
+        if (!$username || !$password) {
+            return response()->json(['success' => false, 'message' => 'Username and password required.'], 400);
+        }
+
+        $org = DB::table('organizations')->where('username', $username)->first();
+
+        if (!$org || !Hash::check($password, $org->password)) {
+            return response()->json(['success' => false, 'message' => 'Invalid credentials.'], 401);
+        }
+
+        $token = $this->generateToken($org->id, $org->orgname, 'organization');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful.',
+            'token'   => $token,
+            'org'     => [
+                'id'            => $org->id,
+                'orgname'       => $org->orgname,
+                'username'      => $org->username,
+                'concernmobile' => $org->concernmobile,
+                'role'          => 'organization',
+            ],
+        ]);
+    }
+
+    // ============================================================
+    // POST /api/org/send-otp
+    // ============================================================
+    public function sendOtp(Request $request)
+    {
+        $concernmobile = trim($request->input('concernmobile', ''));
+
+        if (!preg_match('/^\d{10}$/', $concernmobile)) {
+            return response()->json(['success' => false, 'message' => 'Invalid mobile number.'], 400);
+        }
+
+        $org = DB::table('organizations')->where('concernmobile', $concernmobile)->first();
+
+        if (!$org) {
+            return response()->json(['success' => false, 'message' => 'Mobile number not registered.'], 404);
+        }
+
+        $otp = (string) random_int(100000, 999999);
+
+        DB::table('organizations')
+            ->where('id', $org->id)
+            ->update([
+                'otp'            => $otp,
+                'otp_expires_at' => now()->addMinutes(5),
+            ]);
+
+        // इथे SMS service (Twilio/MSG91 इ.) integrate करावी लागेल
+        // सध्या testing साठी otp response मध्ये परत पाठवतोय — production मध्ये हे काढून टाका
+        return response()->json(['success' => true, 'message' => 'OTP sent.', 'otp_debug' => $otp]);
+    }
+
+    // ============================================================
+    // POST /api/org/verify-otp
+    // ============================================================
+    public function verifyOtp(Request $request)
+    {
+        $concernmobile = trim($request->input('concernmobile', ''));
+        $otp           = trim($request->input('otp', ''));
+
+        $org = DB::table('organizations')->where('concernmobile', $concernmobile)->first();
+
+        if (!$org || $org->otp !== $otp) {
+            return response()->json(['success' => false, 'message' => 'Invalid OTP.'], 401);
+        }
+
+        if (!$org->otp_expires_at || now()->greaterThan($org->otp_expires_at)) {
+            return response()->json(['success' => false, 'message' => 'OTP expired.'], 401);
+        }
+
+        DB::table('organizations')
+            ->where('id', $org->id)
+            ->update(['otp' => null, 'otp_expires_at' => null]);
+
+        $token = $this->generateToken($org->id, $org->orgname, 'organization');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login successful.',
+            'token'   => $token,
+            'org'     => [
+                'id'            => $org->id,
+                'orgname'       => $org->orgname,
+                'concernmobile' => $org->concernmobile,
+                'role'          => 'organization',
+            ],
+        ]);
+    }
+
+
+
+
     // ============================================================
     // GET /api/org/profile (Organization only)
     // ============================================================
@@ -116,7 +225,9 @@ class OrganizationController extends Controller
         $authUser = $request->input('auth_user');
 
         $org = DB::table('organizations')
-            ->where('id', $authUser->id)
+            // ->where('id', $authUser->id)
+                ->where('id', $authUser['id'])
+
             ->first();
 
         if (!$org) {
@@ -136,7 +247,8 @@ class OrganizationController extends Controller
         $authUser = $request->input('auth_user');
 
         $affected = DB::table('organizations')
-            ->where('id', $authUser->id)
+            // ->where('id', $authUser->id)
+              ->where('id', $authUser['id'])
             ->update([
                 'orgname'         => trim($request->input('orgname', '')),
                 'orgaddress'      => trim($request->input('orgaddress', '')),
@@ -173,13 +285,17 @@ class OrganizationController extends Controller
         }
 
         // Delete old responses and re-insert
-        DB::table('orgsurveyresponses')->where('orgid', $authUser->id)->delete();
+        // DB::table('orgsurveyresponses')->where('orgid', $authUser->id)->delete();
+
+        DB::table('orgsurveyresponses')->where('orgid', $authUser['id'])->delete();
+
 
         $rows = [];
         foreach ($answers as $ans) {
             if (!isset($ans['questionid']) || !isset($ans['answer'])) continue;
             $rows[] = [
-                'orgid'       => $authUser->id,
+                // 'orgid'       => $authUser->id,
+                'orgid'       => $authUser['id'],
                 'questionid'  => $ans['questionid'],
                 'answer'      => $ans['answer'],
                 'submittedat' => now(),
@@ -201,7 +317,9 @@ class OrganizationController extends Controller
         $responses = DB::table('orgsurveyresponses as r')
             ->join('surveyquestions as q', 'r.questionid', '=', 'q.id')
             ->select('q.id', 'q.srno', 'q.part', 'q.questiontext', 'q.questionmare', 'r.answer', 'r.submittedat')
-            ->where('r.orgid', $authUser->id)
+            // ->where('r.orgid', $authUser->id)
+
+            ->where('r.orgid', $authUser['id'])
             ->orderBy('q.srno')
             ->get();
 

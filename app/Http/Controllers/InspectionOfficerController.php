@@ -92,7 +92,9 @@ class InspectionOfficerController extends Controller
             'district'   => $district,
             'taluka'     => $taluka,
             'ward'       => $ward,
-            'createdby'  => $authUser->id,
+            // 'createdby'  => $authUser->id,
+            // $authUser['id'] ?? null,
+            'createdby'  => $authUser['id'] ?? null,  // ← FIXED
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -109,7 +111,9 @@ class InspectionOfficerController extends Controller
 
         $officers = DB::table('inspectionofficers')
             ->select('id', 'fullname', 'username', 'email', 'mobile', 'state', 'district', 'taluka', 'ward', 'created_at')
-            ->where('createdby', $authUser->id)
+            // ->where('createdby', $authUser->id)
+                    ->where('createdby', $authUser['id'])  // ← array syntax
+
             ->orderBy('created_at', 'desc')
             ->get();
 

@@ -9,6 +9,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SurveyAssignmentController;
 use App\Http\Controllers\InspectionReportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OrgSurveyController;
 
 // ============================================================
 // SUPER ADMIN ROUTES — /api/super-admin/...
@@ -75,11 +76,18 @@ Route::prefix('org')->group(function () {
     Route::post('/register', [OrganizationController::class, 'register']);
     Route::post('/login',    [OrganizationController::class, 'login']);
 
+    Route::post('/login-username', [OrganizationController::class, 'loginWithUsername']);
+    Route::post('/send-otp',       [OrganizationController::class, 'sendOtp']);
+    Route::post('/verify-otp',     [OrganizationController::class, 'verifyOtp']);
+
     Route::middleware('auth.jwt:organization')->group(function () {
         Route::get('/profile',        [OrganizationController::class, 'profile']);
         Route::put('/profile/edit',   [OrganizationController::class, 'profileEdit']);
-        Route::post('/survey/submit', [OrganizationController::class, 'surveySubmit']);
+        // Route::post('/survey/submit', [OrganizationController::class, 'surveySubmit']);
         Route::get('/survey/my',      [OrganizationController::class, 'mySurvey']);
+
+        Route::post('/survey/submit', [OrgSurveyController::class, 'submit']);
+
     });
 });
 
@@ -111,3 +119,20 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/districtadmin', [DashboardController::class, 'districtAdmin'])->middleware('auth.jwt:districtadmin');
     Route::get('/officer',       [DashboardController::class, 'officer'])->middleware('auth.jwt:inspectionofficer');
 });
+
+
+// ============================================================
+// SURVEY ROUTES — /api/surveys/...
+// ============================================================
+Route::prefix('surveys')->group(function () {
+    Route::get('/',    [OrgSurveyController::class, 'getAllSurveys'])
+        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+
+    Route::get('/{id}', [OrgSurveyController::class, 'getSurveyDetail'])
+        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+});
+
+
+
+
+
