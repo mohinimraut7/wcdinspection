@@ -124,12 +124,20 @@ Route::prefix('dashboard')->group(function () {
 // ============================================================
 // SURVEY ROUTES — /api/surveys/...
 // ============================================================
+// Route::prefix('surveys')->group(function () {
+//     Route::get('/',    [OrgSurveyController::class, 'getAllSurveys'])
+//         ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+
+//     Route::get('/{id}', [OrgSurveyController::class, 'getSurveyDetail'])
+//         ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+// });
+
 Route::prefix('surveys')->group(function () {
     Route::get('/',    [OrgSurveyController::class, 'getAllSurveys'])
-        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin,inspectionofficer');
 
     Route::get('/{id}', [OrgSurveyController::class, 'getSurveyDetail'])
-        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin');
+        ->middleware('auth.jwt:districtadmin,stateadmin,superadmin,inspectionofficer');
 });
 
 

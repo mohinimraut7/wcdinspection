@@ -31,12 +31,21 @@ class JwtAuthMiddleware
         }
 
         // Convert stdClass to array before merging
+        // $authUser = [
+        //     'id'       => $decoded->id,
+        //     // 'username' => $decoded->username,
+        //         'username' => $decoded->username ?? null,
+        //     'role'     => $decoded->role,
+        // ];
+
         $authUser = [
-            'id'       => $decoded->id,
-            // 'username' => $decoded->username,
-                'username' => $decoded->username ?? null,
-            'role'     => $decoded->role,
-        ];
+    'id'       => $decoded->id,
+    'username' => $decoded->username ?? null,
+    'role'     => $decoded->role,
+    'district' => $decoded->district ?? '',
+    'state'    => $decoded->state    ?? '',
+];
+
 
         $request->merge(['auth_user' => $authUser]);
 

@@ -70,11 +70,41 @@ class OrgSurveyController extends Controller
             ->orderBy('ss.submittedat', 'desc');
 
         // Role wise filter
-        if ($authUser['role'] === 'districtadmin') {
-            $query->where('o.district', $authUser['district']);
-        } elseif ($authUser['role'] === 'stateadmin') {
-            $query->where('o.state', $authUser['state']);
-        }
+        // if ($authUser['role'] === 'districtadmin') {
+        //     $query->where('o.district', $authUser['district']);
+        // } elseif ($authUser['role'] === 'stateadmin') {
+        //     $query->where('o.state', $authUser['state']);
+        // }
+
+
+        // Role wise filter
+$role     = $authUser['role']     ?? 'superadmin';
+$district = $authUser['district'] ?? '';
+$state    = $authUser['state']    ?? '';
+$id       = $authUser['id']       ?? null;
+
+
+// if ($role === 'districtadmin' && $district) {
+//     $query->where('o.district', $district);
+// } elseif ($role === 'stateadmin' && $state) {
+//     $query->where('o.state', $state);
+// }
+
+if ($role === 'districtadmin' && $district) {
+    $query->where('o.district', $district);
+} elseif ($role === 'stateadmin' && $state) {
+    $query->where('o.state', $state);
+} elseif ($role === 'inspectionofficer' && $id) {
+    // Fakt assigned surveys disel
+    $query->join('surveyassignments as sa', 'ss.orgid', '=', 'sa.orgid')
+          ->where('sa.officerid', $id)
+          ->where('sa.status', 'assigned');
+}
+
+// superadmin → no filter
+
+
+
         // superadmin → no filter
 
         $data = $query->get();

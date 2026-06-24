@@ -27,7 +27,10 @@ class InspectionOfficerController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid credentials.'], 401);
         }
 
-        $token = $this->generateToken($user->id, $user->username, 'inspectionofficer');
+        // $token = $this->generateToken($user->id, $user->username, 'inspectionofficer');
+
+        $token = $this->generateToken($user->id, $user->username, 'inspectionofficer', $user->district, $user->state);
+
 
         return response()->json([
             'success' => true,
@@ -105,20 +108,49 @@ class InspectionOfficerController extends Controller
     // ============================================================
     // GET /api/inspection-officer/get (District Admin only)
     // ============================================================
+    // public function get(Request $request)
+    // {
+    //     $authUser = $request->input('auth_user');
+
+    //     $officers = DB::table('inspectionofficers')
+    //         ->select('id', 'fullname', 'username', 'email', 'mobile', 'state', 'district', 'taluka', 'ward', 'created_at')
+    //         // ->where('createdby', $authUser->id)
+    //                 ->where('createdby', $authUser['id'])  // ← array syntax
+
+    //         ->orderBy('created_at', 'desc')
+    //         ->get();
+
+    //     return response()->json(['success' => true, 'count' => $officers->count(), 'data' => $officers]);
+    // }
+
+
     public function get(Request $request)
-    {
-        $authUser = $request->input('auth_user');
+{
+    $authUser = $request->input('auth_user');
+    $role     = $authUser['role']     ?? '';
+    $district = $authUser['district'] ?? '';
+    $id       = $authUser['id']       ?? null;
 
-        $officers = DB::table('inspectionofficers')
-            ->select('id', 'fullname', 'username', 'email', 'mobile', 'state', 'district', 'taluka', 'ward', 'created_at')
-            // ->where('createdby', $authUser->id)
-                    ->where('createdby', $authUser['id'])  // ← array syntax
+    $query = DB::table('inspectionofficers')
+        ->select('id', 'fullname', 'username', 'email', 'mobile',
+                 'state', 'district', 'taluka', 'ward', 'created_at')
+        ->orderBy('created_at', 'desc');
 
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json(['success' => true, 'count' => $officers->count(), 'data' => $officers]);
+    if ($role === 'inspectionofficer') {
+        $query->where('id', $id);
+    } elseif ($role === 'districtadmin' && $district) {
+        $query->where('district', $district);
     }
+    // superadmin → sagale
+
+    $officers = $query->get();
+
+    return response()->json([
+        'success' => true,
+        'count'   => $officers->count(),
+        'data'    => $officers,
+    ]);
+}
 
     // ============================================================
     // PUT /api/inspection-officer/edit/{id} (District Admin only)
@@ -167,17 +199,35 @@ class InspectionOfficerController extends Controller
         return response()->json(['success' => true, 'message' => 'Officer deleted.']);
     }
 
-    private function generateToken($id, $username, $role)
-    {
-        $payload = [
-            'iss'      => config('app.url'),
-            'iat'      => time(),
-            'exp'      => time() + (60 * 60 * 24 * 30),
-            'id'       => $id,
-            'username' => $username,
-            'role'     => $role,
-        ];
+    // private function generateToken($id, $username, $role)
+    // {
+    //     $payload = [
+    //         'iss'      => config('app.url'),
+    //         'iat'      => time(),
+    //         'exp'      => time() + (60 * 60 * 24 * 30),
+    //         'id'       => $id,
+    //         'username' => $username,
+    //         'role'     => $role,
+    //     ];
 
-        return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
-    }
+    //     return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
+    // }
+
+private function generateToken($id, $username, $role, $district = '', $state = '')
+{
+    $payload = [
+        'iss'      => config('app.url'),
+        'iat'      => time(),
+        'exp'      => time() + (60 * 60 * 24 * 30),
+        'id'       => $id,
+        'username' => $username,
+        'role'     => $role,
+        'district' => $district,
+        'state'    => $state,
+    ];
+
+    return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
+}
+
+
 }

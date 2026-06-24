@@ -27,7 +27,9 @@ class DistrictAdminController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid credentials.'], 401);
         }
 
-        $token = $this->generateToken($user->id, $user->username, 'districtadmin');
+        // $token = $this->generateToken($user->id, $user->username, 'districtadmin');
+
+        $token = $this->generateToken($user->id, $user->username, 'districtadmin', $user->district, $user->state);
 
         return response()->json([
             'success' => true,
@@ -154,17 +156,37 @@ class DistrictAdminController extends Controller
         return response()->json(['success' => true, 'message' => 'District admin deleted.']);
     }
 
-    private function generateToken($id, $username, $role)
-    {
-        $payload = [
-            'iss'      => config('app.url'),
-            'iat'      => time(),
-            'exp'      => time() + (60 * 60 * 24 * 30),
-            'id'       => $id,
-            'username' => $username,
-            'role'     => $role,
-        ];
+    // private function generateToken($id, $username, $role)
+    // {
+    //     $payload = [
+    //         'iss'      => config('app.url'),
+    //         'iat'      => time(),
+    //         'exp'      => time() + (60 * 60 * 24 * 30),
+    //         'id'       => $id,
+    //         'username' => $username,
+    //         'role'     => $role,
+    //     ];
 
-        return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
-    }
+    //     return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
+    // }
+
+
+    private function generateToken($id, $username, $role, $district = '', $state = '')
+{
+    $payload = [
+        'iss'      => config('app.url'),
+        'iat'      => time(),
+        'exp'      => time() + (60 * 60 * 24 * 30),
+        'id'       => $id,
+        'username' => $username,
+        'role'     => $role,
+        'district' => $district,
+        'state'    => $state,
+    ];
+
+    return JWT::encode($payload, config('app.jwt_secret'), 'HS256');
+}
+
+
+
 }

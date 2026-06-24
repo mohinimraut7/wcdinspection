@@ -45,7 +45,8 @@ class SurveyAssignmentController extends Controller
         $id = DB::table('surveyassignments')->insertGetId([
             'orgid'      => $orgid,
             'officerid'  => $officerid,
-            'assignedby' => $authUser->id,
+            // 'assignedby' => $authUser->id,
+            'assignedby' => $authUser['id'] ?? null,
             'status'     => 'assigned',
             'assignedat' => now(),
         ]);
@@ -85,7 +86,11 @@ class SurveyAssignmentController extends Controller
                 'o.id as orgid', 'o.orgname', 'o.orgtype', 'o.district', 'o.taluka',
                 'io.id as officerid', 'io.fullname as officername', 'io.mobile as officermobile'
             )
-            ->where('sa.assignedby', $authUser->id)
+            // ->where('sa.assignedby', $authUser->id)
+            
+              ->where('sa.assignedby', $authUser['id'])
+
+
             ->orderBy('sa.assignedat', 'desc')
             ->get();
 
