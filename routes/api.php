@@ -61,12 +61,22 @@ Route::prefix('district-admin')->group(function () {
 Route::prefix('inspection-officer')->group(function () {
     Route::post('/login', [InspectionOfficerController::class, 'login']);
 
-    Route::middleware('auth.jwt:districtadmin')->group(function () {
-        Route::post('/add',           [InspectionOfficerController::class, 'add']);
-        Route::get('/get',            [InspectionOfficerController::class, 'get']);
-        Route::put('/edit/{id}',      [InspectionOfficerController::class, 'edit']);
-        Route::delete('/delete/{id}', [InspectionOfficerController::class, 'delete']);
-    });
+    // Route::middleware('auth.jwt:districtadmin')->group(function () {
+    //     Route::post('/add',           [InspectionOfficerController::class, 'add']);
+    //     Route::get('/get',            [InspectionOfficerController::class, 'get']);
+    //     Route::put('/edit/{id}',      [InspectionOfficerController::class, 'edit']);
+    //     Route::delete('/delete/{id}', [InspectionOfficerController::class, 'delete']);
+    // });
+
+Route::middleware('auth.jwt:districtadmin')->group(function () {
+    Route::post('/add',           [InspectionOfficerController::class, 'add']);
+    Route::put('/edit/{id}',      [InspectionOfficerController::class, 'edit']);
+    Route::delete('/delete/{id}', [InspectionOfficerController::class, 'delete']);
+});
+
+Route::get('/get', [InspectionOfficerController::class, 'get'])
+    ->middleware('auth.jwt:superadmin,stateadmin,districtadmin,inspectionofficer');
+
 });
 
 // ============================================================
@@ -108,6 +118,8 @@ Route::prefix('officer')->middleware('auth.jwt:inspectionofficer')->group(functi
     Route::post('/report/submit',        [InspectionReportController::class, 'submitReport']);
     Route::get('/report/get',            [InspectionReportController::class, 'getMyReports']);
     Route::put('/report/reinspect/{id}', [InspectionReportController::class, 'reinspectReport']);
+   Route::post('/report/quick-review',  [InspectionReportController::class, 'quickReview']); // ← हे add कर
+
 });
 
 // ============================================================

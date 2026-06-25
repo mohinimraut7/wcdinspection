@@ -21,8 +21,7 @@ class InspectionReportController extends Controller
                 'o.id as orgid', 'o.orgname', 'o.orgtype', 'o.orgaddress',
                 'o.district', 'o.taluka', 'o.ward', 'o.concernname', 'o.concernmobile'
             )
-            // ->where('sa.officerid', $authUser->id)
-            ->where('sa.officerid', $authUser['id'])  // -> ऐवजी ['id']
+            ->where('sa.officerid', $authUser['id'])
             ->where('sa.status', 'assigned')
             ->orderBy('sa.assignedat', 'desc')
             ->get();
@@ -39,32 +38,28 @@ class InspectionReportController extends Controller
     // ============================================================
     public function submitReport(Request $request)
     {
-        $authUser             = $request->input('auth_user');
-        $assignmentid         = $request->input('assignmentid');
-        $casetype             = $request->input('casetype');
-        $status               = $request->input('status');
-        $officername          = trim($request->input('officername', ''));
-        $officerdesignation   = trim($request->input('officerdesignation', ''));
-        $officersignature     = $request->input('officersignature', '');
-        $concernname          = trim($request->input('concernname', ''));
-        $concernsignature     = $request->input('concernsignature', '');
-        $finalremark          = trim($request->input('finalremark', ''));
-        $latitude             = $request->input('latitude');
-        $longitude            = $request->input('longitude');
-        $remarks              = $request->input('remarks', []); // Case 2 question-wise
+        $authUser           = $request->input('auth_user');
+        $assignmentid       = $request->input('assignmentid');
+        $casetype           = $request->input('casetype');
+        $status             = $request->input('status');
+        $officername        = trim($request->input('officername', ''));
+        $officerdesignation = trim($request->input('officerdesignation', ''));
+        $officersignature   = $request->input('officersignature', '');
+        $concernname        = trim($request->input('concernname', ''));
+        $concernsignature   = $request->input('concernsignature', '');
+        $finalremark        = trim($request->input('finalremark', ''));
+        $latitude           = $request->input('latitude');
+        $longitude          = $request->input('longitude');
+        $remarks            = $request->input('remarks', []);
 
         if (!$assignmentid || !$casetype || !$status || !$officername || !$officerdesignation) {
             return response()->json(['success' => false, 'message' => 'Required fields missing.'], 400);
         }
 
-        if (!$latitude || !$longitude) {
-            return response()->json(['success' => false, 'message' => 'Latitude and longitude required.'], 400);
-        }
-
         // Check assignment belongs to this officer
         $assignment = DB::table('surveyassignments')
             ->where('id', $assignmentid)
-            ->where('officerid', $authUser->id)
+            ->where('officerid', $authUser['id'])
             ->first();
 
         if (!$assignment) {
@@ -73,11 +68,10 @@ class InspectionReportController extends Controller
 
         $orgid = $assignment->orgid;
 
-        // Insert report
         $reportId = DB::table('inspectionreports')->insertGetId([
             'assignmentid'       => $assignmentid,
             'orgid'              => $orgid,
-            'officerid'          => $authUser->id,
+            'officerid'          => $authUser['id'],
             'casetype'           => $casetype,
             'status'             => $status,
             'officername'        => $officername,
@@ -91,17 +85,17 @@ class InspectionReportController extends Controller
             'submittedat'        => now(),
         ]);
 
-        // Case 2 — Insert question-wise remarks
+        // Case 2 — question-wise remarks
         if ($casetype === 'case2' && !empty($remarks)) {
             $remarkRows = [];
             foreach ($remarks as $r) {
                 if (!isset($r['questionid'])) continue;
                 $remarkRows[] = [
-                    'reportid'   => $reportId,
-                    'questionid' => $r['questionid'],
-                    'originalans'=> $r['originalans'] ?? null,
-                    'editedans'  => $r['editedans'] ?? null,
-                    'remark'     => $r['remark'] ?? null,
+                    'reportid'    => $reportId,
+                    'questionid'  => $r['questionid'],
+                    'originalans' => $r['originalans'] ?? null,
+                    'editedans'   => $r['editedans']   ?? null,
+                    'remark'      => $r['remark']       ?? null,
                 ];
             }
             if (!empty($remarkRows)) {
@@ -109,12 +103,75 @@ class InspectionReportController extends Controller
             }
         }
 
-        // Update assignment status to inspected
         DB::table('surveyassignments')
             ->where('id', $assignmentid)
             ->update(['status' => 'inspected']);
 
         return response()->json(['success' => true, 'message' => 'Report submitted.', 'reportid' => $reportId], 201);
+    }
+
+    // ============================================================
+    // POST /api/officer/report/quick-review
+    // Simple review from Surveys page — auto-fetches assignmentid
+    // casetype: case1/case2/case3/case4
+    // status: compiled / notcompiled / pending / rejected
+    // ============================================================
+    public function quickReview(Request $request)
+    {
+        $authUser           = $request->input('auth_user');
+        $orgid              = $request->input('orgid');
+        $casetype           = $request->input('casetype');           // case1/case2/case3/case4
+        $status             = $request->input('status');             // compiled/notcompiled/pending/rejected
+        $officername        = trim($request->input('officername', ''));
+        $officerdesignation = trim($request->input('officerdesignation', ''));
+        $finalremark        = trim($request->input('finalremark', ''));
+        $latitude           = $request->input('latitude',  null);
+        $longitude          = $request->input('longitude', null);
+
+        if (!$orgid || !$casetype || !$status || !$officername || !$officerdesignation) {
+            return response()->json(['success' => false, 'message' => 'Required fields missing.'], 400);
+        }
+
+        // Assignment शोध — assigned किंवा inspected (re-inspection साठी)
+        $assignment = DB::table('surveyassignments')
+            ->where('orgid', $orgid)
+            ->where('officerid', $authUser['id'])
+            ->whereIn('status', ['assigned', 'inspected'])
+            ->orderBy('assignedat', 'desc')
+            ->first();
+
+        if (!$assignment) {
+            return response()->json(['success' => false, 'message' => 'No active assignment found for this organization.'], 404);
+        }
+
+        $reportId = DB::table('inspectionreports')->insertGetId([
+            'assignmentid'       => $assignment->id,
+            'orgid'              => $orgid,
+            'officerid'          => $authUser['id'],
+            'casetype'           => $casetype,
+            'status'             => $status,
+            'officername'        => $officername,
+            'officerdesignation' => $officerdesignation,
+            'officersignature'   => '',
+            'concernname'        => '',
+            'concernsignature'   => '',
+            'finalremark'        => $finalremark,
+            'latitude'           => $latitude,
+            'longitude'          => $longitude,
+            'submittedat'        => now(),
+        ]);
+
+        // case4 (re-inspection) → permanently update assignment
+        $newAssignmentStatus = in_array($casetype, ['case4']) ? 'inspected' : 'inspected';
+        DB::table('surveyassignments')
+            ->where('id', $assignment->id)
+            ->update(['status' => $newAssignmentStatus]);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Review submitted successfully.',
+            'reportid' => $reportId,
+        ], 201);
     }
 
     // ============================================================
@@ -131,7 +188,6 @@ class InspectionReportController extends Controller
                 'ir.latitude', 'ir.longitude', 'ir.submittedat',
                 'o.orgname', 'o.orgtype', 'o.district', 'o.taluka'
             )
-            // ->where('ir.officerid', $authUser->id)
             ->where('ir.officerid', $authUser['id'])
             ->orderBy('ir.submittedat', 'desc')
             ->get();
@@ -148,10 +204,10 @@ class InspectionReportController extends Controller
     // ============================================================
     public function reinspectReport(Request $request, $id)
     {
-        $authUser   = $request->input('auth_user');
-        $status     = $request->input('status');        // 'compiled' or 'rejected'
-        $finalremark= trim($request->input('finalremark', ''));
-        $remarks    = $request->input('remarks', []);
+        $authUser    = $request->input('auth_user');
+        $status      = $request->input('status');
+        $finalremark = trim($request->input('finalremark', ''));
+        $remarks     = $request->input('remarks', []);
 
         if (!$status) {
             return response()->json(['success' => false, 'message' => 'Status required.'], 400);
@@ -159,9 +215,7 @@ class InspectionReportController extends Controller
 
         $report = DB::table('inspectionreports')
             ->where('id', $id)
-            // ->where('officerid', $authUser->id)
             ->where('officerid', $authUser['id'])
-
             ->first();
 
         if (!$report) {
@@ -177,7 +231,6 @@ class InspectionReportController extends Controller
                 'submittedat' => now(),
             ]);
 
-        // Insert re-inspection remarks if any
         if (!empty($remarks)) {
             $remarkRows = [];
             foreach ($remarks as $r) {
@@ -186,8 +239,8 @@ class InspectionReportController extends Controller
                     'reportid'    => $id,
                     'questionid'  => $r['questionid'],
                     'originalans' => $r['originalans'] ?? null,
-                    'editedans'   => $r['editedans'] ?? null,
-                    'remark'      => $r['remark'] ?? null,
+                    'editedans'   => $r['editedans']   ?? null,
+                    'remark'      => $r['remark']       ?? null,
                 ];
             }
             if (!empty($remarkRows)) {
