@@ -59,51 +59,38 @@ class OrgSurveyController extends Controller
     {
         $authUser = $request->input('auth_user');
 
+        $role     = $authUser['role']     ?? 'superadmin';
+        $district = $authUser['district'] ?? '';
+        $state    = $authUser['state']    ?? '';
+        $id       = $authUser['id']       ?? null;
+
         $query = DB::table('surveysubmissions as ss')
             ->join('organizations as o', 'ss.orgid', '=', 'o.id')
+            // ── Latest inspectionreport चा finalstatus ──
+            ->leftJoin(DB::raw('(
+                SELECT orgid, finalstatus, reviewround
+                FROM inspectionreports
+                WHERE id IN (
+                    SELECT MAX(id) FROM inspectionreports GROUP BY orgid
+                )
+            ) as ir'), 'ss.orgid', '=', 'ir.orgid')
             ->select(
                 'ss.id as submissionid', 'ss.submittedat',
                 'o.id as orgid', 'o.orgname', 'o.orgtype',
                 'o.district', 'o.taluka', 'o.ward',
-                'o.concernname', 'o.concernmobile'
+                'o.concernname', 'o.concernmobile',
+                'ir.finalstatus', 'ir.reviewround'
             )
             ->orderBy('ss.submittedat', 'desc');
 
-        // Role wise filter
-        // if ($authUser['role'] === 'districtadmin') {
-        //     $query->where('o.district', $authUser['district']);
-        // } elseif ($authUser['role'] === 'stateadmin') {
-        //     $query->where('o.state', $authUser['state']);
-        // }
-
-
-        // Role wise filter
-$role     = $authUser['role']     ?? 'superadmin';
-$district = $authUser['district'] ?? '';
-$state    = $authUser['state']    ?? '';
-$id       = $authUser['id']       ?? null;
-
-
-// if ($role === 'districtadmin' && $district) {
-//     $query->where('o.district', $district);
-// } elseif ($role === 'stateadmin' && $state) {
-//     $query->where('o.state', $state);
-// }
-
-if ($role === 'districtadmin' && $district) {
-    $query->where('o.district', $district);
-} elseif ($role === 'stateadmin' && $state) {
-    $query->where('o.state', $state);
-} elseif ($role === 'inspectionofficer' && $id) {
-    // Fakt assigned surveys disel
-    $query->join('surveyassignments as sa', 'ss.orgid', '=', 'sa.orgid')
-          ->where('sa.officerid', $id)
-          ->where('sa.status', 'assigned');
-}
-
-// superadmin → no filter
-
-
+        if ($role === 'districtadmin' && $district) {
+            $query->where('o.district', $district);
+        } elseif ($role === 'stateadmin' && $state) {
+            $query->where('o.state', $state);
+        } elseif ($role === 'inspectionofficer' && $id) {
+            $query->join('surveyassignments as sa', 'ss.orgid', '=', 'sa.orgid')
+                  ->where('sa.officerid', $id);
+        }
 
         // superadmin → no filter
 

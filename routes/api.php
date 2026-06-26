@@ -113,13 +113,25 @@ Route::prefix('assignment')->middleware('auth.jwt:districtadmin')->group(functio
 // ============================================================
 // INSPECTION OFFICER REPORT ROUTES — /api/officer/...
 // ============================================================
+// Route::prefix('officer')->middleware('auth.jwt:inspectionofficer')->group(function () {
+//     Route::get('/assignments',           [InspectionReportController::class, 'getMyAssignments']);
+//     Route::post('/report/submit',        [InspectionReportController::class, 'submitReport']);
+//     Route::get('/report/get',            [InspectionReportController::class, 'getMyReports']);
+//     Route::put('/report/reinspect/{id}', [InspectionReportController::class, 'reinspectReport']);
+//    Route::post('/report/quick-review',  [InspectionReportController::class, 'quickReview']); // ← हे add कर
+//     Route::get('/report/get-round',      [InspectionReportController::class, 'getReviewRound']);   // ← NEW
+//     Route::post('/report/quick-review',  [InspectionReportController::class, 'quickReview']);      // ← NEW
+
+// });
+
+
 Route::prefix('officer')->middleware('auth.jwt:inspectionofficer')->group(function () {
     Route::get('/assignments',           [InspectionReportController::class, 'getMyAssignments']);
     Route::post('/report/submit',        [InspectionReportController::class, 'submitReport']);
     Route::get('/report/get',            [InspectionReportController::class, 'getMyReports']);
     Route::put('/report/reinspect/{id}', [InspectionReportController::class, 'reinspectReport']);
-   Route::post('/report/quick-review',  [InspectionReportController::class, 'quickReview']); // ← हे add कर
-
+    Route::get('/report/get-round',      [InspectionReportController::class, 'getReviewRound']);
+    Route::post('/report/quick-review',  [InspectionReportController::class, 'quickReview']);
 });
 
 // ============================================================
