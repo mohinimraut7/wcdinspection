@@ -43,7 +43,7 @@ class OrgSurveyController extends Controller
             DB::table('surveysubmissions')->where('id', $existing->id)->delete();
         }
 
-        // Insert submission
+        // Insert submissio
         $submissionId = DB::table('surveysubmissions')->insertGetId([
             'orgid'       => $authUser['id'],
             'submittedat' => now(),
