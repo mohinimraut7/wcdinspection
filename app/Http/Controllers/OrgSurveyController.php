@@ -74,8 +74,10 @@ class OrgSurveyController extends Controller
     // ============================================================
     // GET /api/org/survey/status (Organization only)
     // Tells the mobile/web app whether this org has already submitted,
-    // what their answers were, and whether they're allowed to edit
-    // (only when Inspection Officer marked it rejected/notcompiled).
+    // what their answers were, whether they're allowed to edit
+    // (only when Inspection Officer marked it rejected/notcompiled),
+    // and — if editable — exactly WHICH questions were flagged
+    // non-compliant along with the officer's comment for each.
     // ============================================================
     public function myStatus(Request $request)
     {
@@ -113,24 +115,44 @@ class OrgSurveyController extends Controller
         $reportStatus = null;
         $reviewround  = null;
         $canEdit      = false;
+        $editableQuestions = [];   // { questionid: { comment } } — only non-compliant ones
 
         if ($report) {
             $reportStatus = $report->finalstatus ?? $report->status;
             $reviewround  = $report->reviewround;
             // Only rejected / notcompiled survey can be edited & resubmitted
             $canEdit = in_array($reportStatus, ['rejected', 'notcompiled']);
+
+            if ($canEdit) {
+                // Pull the questions THIS report flagged as "no" — round1 uses
+                // originalans, round2 uses editedans — plus the officer's comment.
+                $remarks = DB::table('inspectionremarks')
+                    ->where('reportid', $report->id)
+                    ->where(function ($q) {
+                        $q->where('originalans', 'no')
+                          ->orWhere('editedans', 'no');
+                    })
+                    ->get(['questionid', 'remark', 'comment']);
+
+                foreach ($remarks as $r) {
+                    $editableQuestions[$r->questionid] = [
+                        'comment' => $r->comment ?: $r->remark ?: null,
+                    ];
+                }
+            }
         }
 
         return response()->json([
-            'success'      => true,
-            'submitted'    => true,
-            'submissionid' => $submission->id,
-            'submittedat'  => $submission->submittedat,
-            'answers'      => $answers,          // {questionid: "yes"/"no"}
-            'reportExists' => (bool) $report,
-            'status'       => $reportStatus,      // null | pending | compiled | notcompiled | rejected
-            'reviewround'  => $reviewround,
-            'canEdit'      => $canEdit,           // true only for rejected/notcompiled
+            'success'            => true,
+            'submitted'          => true,
+            'submissionid'       => $submission->id,
+            'submittedat'        => $submission->submittedat,
+            'answers'            => $answers,            // {questionid: "yes"/"no"} — full previous answers
+            'reportExists'       => (bool) $report,
+            'status'             => $reportStatus,        // null | pending | compiled | notcompiled | rejected
+            'reviewround'        => $reviewround,
+            'canEdit'            => $canEdit,             // true only for rejected/notcompiled
+            'editableQuestions'  => $editableQuestions,   // {questionid: {comment}} — ONLY these should be unlocked
         ]);
     }
 
