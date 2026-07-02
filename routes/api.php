@@ -97,6 +97,7 @@ Route::prefix('org')->group(function () {
         Route::get('/survey/my',      [OrganizationController::class, 'mySurvey']);
 
         Route::post('/survey/submit', [OrgSurveyController::class, 'submit']);
+        Route::get('/survey/status', [OrgSurveyController::class, 'myStatus']);
 
     });
 });
