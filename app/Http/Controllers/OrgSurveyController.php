@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 class OrgSurveyController extends Controller
 {
+    // ============================================================
     // POST /api/org/survey/submit
+    // ============================================================
     public function submit(Request $request)
     {
         $authUser = $request->input('auth_user');
@@ -23,7 +25,22 @@ class OrgSurveyController extends Controller
             ->first();
 
         if ($existing) {
-            return response()->json(['success' => false, 'message' => 'Survey already submitted.'], 409);
+            // ── Allow re-submit ONLY if the latest inspection report says
+            //    rejected / notcompiled. Otherwise block re-submission. ──
+            $report = DB::table('inspectionreports')
+                ->where('orgid', $authUser['id'])
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $reportStatus = $report->finalstatus ?? ($report->status ?? null);
+
+            if (!$report || !in_array($reportStatus, ['rejected', 'notcompiled'])) {
+                return response()->json(['success' => false, 'message' => 'Survey already submitted.'], 409);
+            }
+
+            // Edit allowed — remove old submission + its answers, then re-insert fresh
+            DB::table('surveyanswers')->where('submissionid', $existing->id)->delete();
+            DB::table('surveysubmissions')->where('id', $existing->id)->delete();
         }
 
         // Insert submission
@@ -54,7 +71,72 @@ class OrgSurveyController extends Controller
         ], 201);
     }
 
+    // ============================================================
+    // GET /api/org/survey/status (Organization only)
+    // Tells the mobile/web app whether this org has already submitted,
+    // what their answers were, and whether they're allowed to edit
+    // (only when Inspection Officer marked it rejected/notcompiled).
+    // ============================================================
+    public function myStatus(Request $request)
+    {
+        $authUser = $request->input('auth_user');
+        $orgid    = $authUser['id'];
+
+        $submission = DB::table('surveysubmissions')
+            ->where('orgid', $orgid)
+            ->first();
+
+        // ── Not submitted yet — normal editable form should show ──
+        if (!$submission) {
+            return response()->json([
+                'success'   => true,
+                'submitted' => false,
+            ]);
+        }
+
+        // ── Fetch this submission's answers ──
+        $answerRows = DB::table('surveyanswers')
+            ->where('submissionid', $submission->id)
+            ->get(['questionid', 'answer']);
+
+        $answers = [];
+        foreach ($answerRows as $a) {
+            $answers[$a->questionid] = $a->answer;
+        }
+
+        // ── Latest inspection report for this org (if any) ──
+        $report = DB::table('inspectionreports')
+            ->where('orgid', $orgid)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $reportStatus = null;
+        $reviewround  = null;
+        $canEdit      = false;
+
+        if ($report) {
+            $reportStatus = $report->finalstatus ?? $report->status;
+            $reviewround  = $report->reviewround;
+            // Only rejected / notcompiled survey can be edited & resubmitted
+            $canEdit = in_array($reportStatus, ['rejected', 'notcompiled']);
+        }
+
+        return response()->json([
+            'success'      => true,
+            'submitted'    => true,
+            'submissionid' => $submission->id,
+            'submittedat'  => $submission->submittedat,
+            'answers'      => $answers,          // {questionid: "yes"/"no"}
+            'reportExists' => (bool) $report,
+            'status'       => $reportStatus,      // null | pending | compiled | notcompiled | rejected
+            'reviewround'  => $reviewround,
+            'canEdit'      => $canEdit,           // true only for rejected/notcompiled
+        ]);
+    }
+
+    // ============================================================
     // GET /api/admin/surveys (District/State/Super Admin)
+    // ============================================================
     public function getAllSurveys(Request $request)
     {
         $authUser = $request->input('auth_user');
@@ -103,7 +185,9 @@ class OrgSurveyController extends Controller
         ]);
     }
 
+    // ============================================================
     // GET /api/admin/surveys/{id} (Single submission with answers)
+    // ============================================================
     public function getSurveyDetail(Request $request, $submissionid)
     {
         $submission = DB::table('surveysubmissions as ss')
